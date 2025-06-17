@@ -1,9 +1,9 @@
-import { Home, Users, PhoneCall, Ambulance } from "lucide-react";
+import { Home, Users, PhoneCall, Ambulance, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const services = [
-  { icon: <Home />, title: "Senior Care Homes", description: "Comfortable and safe residences for seniors" },
-  { icon: <Users />, title: "Home Care Professionals", description: "Certified nurses and caregivers for at-home support" },
+  { icon: <Ambulance />, title: "Certified Nurses at Home", description: "Professional medical care delivered in the comfort of your Delhi home." },
+  { icon: <Users />, title: "Caring Attendants at Home", description: "Compassionate support for daily living, enhancing dignity and well-being in Delhi." },
   { icon: <PhoneCall />, title: "Consultation Services", description: "Personalized guidance for families to choose the best care" },
 ];
 
