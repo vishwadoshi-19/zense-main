@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const steps = [
-  { number: "1", title: "Explore", description: "Browse verified care options for home or senior living" },
-  { number: "2", title: "Connect", description: "Talk to providers or consult with our experts" },
+  { number: "1", title: "Explore", description: "Browse our panel of professional Nurses and Attendants!" },
+  { number: "2", title: "Connect", description: "Talk to providers or consult with our experts." },
   { number: "3", title: "Book", description: "Get trusted care instantly, for you or your family!" }
 ];
 

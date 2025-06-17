@@ -32,9 +32,7 @@ export default function Home() {
                 <div className="text-teal-700"> for your loved ones.</div>
               </h1>
               <p className="mt-6 text-lg text-gray-600 text-center md:text-left">
-                Zense connects you with verified, compassionate, and affordable
-                senior care solutions, whether at home or in a senior living
-                facility.
+              Zense: Your Partner in At-Home Care. Connecting you with Certified Nurses & Compassionate Attendants providing Dignified Support for Seniors and Post-Hospital Recovery.
               </p>
 
               {/* Search Bar */}
