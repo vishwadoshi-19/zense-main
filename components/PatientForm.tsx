@@ -251,7 +251,7 @@ const PatientForm = () => {
         </div>
       </fieldset>
       <button type="submit" className="bg-teal-700 hover:bg-teal-800 text-white font-bold py-2 px-4 rounded">
-        Send message
+        Find the Right Care
       </button>
     </form>
   );
