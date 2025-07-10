@@ -106,9 +106,9 @@ interface Attendant {
   fullName: string;
   name?: string;
   jobRole: string;
-  experienceYears: number;
+  experienceYears: string;
   languagesKnown: string[];
-  district?: string;
+  district: string[];
   location?: string;
   subDistricts: string[];
   preferredShifts: string[];
@@ -120,6 +120,9 @@ interface Attendant {
     "5hrs"?: number;
     "12hrs"?: number;
     "24hrs"?: number;
+  };
+  currentAddress?: {
+    zip?: string;
   };
   // Add other fields as needed
 }
@@ -376,10 +379,18 @@ function ProvidersContent() {
     setIsLoadingListings(true);
     if (type === "attendant" || type === "nurse") {
       const querySnapshot = await getDocs(collection(db, "users"));
-      let fetchedListings = querySnapshot.docs.map((doc: any) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      let fetchedListings = querySnapshot.docs.map((doc: any) => {
+        const data = doc.data();
+        let services: string[] = [];
+        if (data.extraServicesOffered && typeof data.extraServicesOffered === 'object') {
+          services = Object.values(data.extraServicesOffered).flat() as string[];
+        }
+        return {
+          id: doc.id,
+          ...data,
+          extraServicesOffered: services,
+        };
+      });
       setListings(fetchedListings);
     }
     setIsLoadingListings(false);
@@ -470,61 +481,60 @@ function ProvidersContent() {
   useEffect(() => {
     if (!listings) return;
 
-    // Step 1: Apply all filters
-    const filtered = listings.filter((listing) => {
-      // 1. Role filter
+    const applyFilters = (listing: Attendant) => {
       const statusMatch = !listing.status || listing.status !== "unregistered";
-      if (statusMatch) {
-        const roleMatch =
-          !type || listing.jobRole.toLowerCase() == type.toLowerCase();
+      if (!statusMatch) return false;
 
-        const genderMatch =
-          !gender || listing.gender?.toLowerCase() === gender.toLowerCase();
+      const roleMatch =
+        !type || (listing.jobRole && listing.jobRole.toLowerCase() === type.toLowerCase());
+      const genderMatch =
+        !gender || (listing.gender && listing.gender.toLowerCase() === gender.toLowerCase());
+      const shiftMatch =
+        selectedShifts.length === 0 ||
+        (Array.isArray(listing.preferredShifts) && listing.preferredShifts.some((shift: string) =>
+          selectedShifts
+            .map((s) => s.toLowerCase().trim())
+            .includes(shift.toLowerCase().trim())
+        ));
+      const experienceMatch = typeof listing.experienceYears === 'string' && parseInt(listing.experienceYears.split('-')[0]) >= minYears[0];
+      const servicesMatch =
+        selectedServices.length === 0 ||
+        (Array.isArray(listing.extraServicesOffered) && selectedServices.every((service: string) =>
+          listing.extraServicesOffered.includes(service)
+        ));
 
-        const shiftMatch =
-          selectedShifts.length === 0 ||
-          (listing?.preferredShifts ?? []).some((shift: string) =>
-            selectedShifts
-              .map((s) => s.toLowerCase().trim())
-              .includes(shift.toLowerCase().trim())
-          );
+      return (
+        roleMatch &&
+        genderMatch &&
+        shiftMatch &&
+        experienceMatch &&
+        servicesMatch
+      );
+    };
 
-        // 2. Location filter
-        const locationMatch =
-          !district ||
-          listing?.subDistricts?.includes(toTitleCase(district)) ||
-          listing?.subDistricts?.includes(toTitleCase(district) + " Delhi");
+    const locationMatch = (listing: Attendant) => {
+      const districtName = toTitleCase(district);
+      const pincode = currentLocation;
+      return (
+        (Array.isArray(listing.district) &&
+          listing.district.includes(districtName.toLowerCase())) ||
+        (listing.currentAddress && listing.currentAddress.zip === pincode)
+      );
+    };
 
-        // 3. Years of experience filter
-        const experienceMatch = listing.experienceYears >= minYears[0];
+    const filtered = listings.filter(applyFilters);
 
-        // 4. Services filter
-        const servicesMatch =
-          !selectedServices?.length ||
-          selectedServices.every((service: string) =>
-            listing.extraServicesOffered.includes(service)
-          );
+    const topListings = filtered.filter(locationMatch);
+    const otherListings = filtered.filter(
+      (listing) => !locationMatch(listing)
+    );
 
-        return (
-          roleMatch &&
-          locationMatch &&
-          experienceMatch &&
-          servicesMatch &&
-          genderMatch &&
-          shiftMatch &&
-          statusMatch
-        );
-      } else {
-        return false;
-      }
-    });
-
-    // Probably you want to do something like this:
-    setFilteredListings(filtered);
+    setFilteredListings([...topListings, ...otherListings]);
   }, [
     listings,
     type,
     district,
+    currentLocation,
     minYears,
     selectedServices,
     gender,
@@ -532,6 +542,19 @@ function ProvidersContent() {
   ]);
 
   const ContentSection: React.FC = () => {
+    const locationMatch = (listing: Attendant) => {
+      const districtName = toTitleCase(district);
+      const pincode = currentLocation;
+      return (
+        (Array.isArray(listing.district) &&
+          listing.district.includes(districtName.toLowerCase())) ||
+        (listing.currentAddress && listing.currentAddress.zip === pincode)
+      );
+    };
+    const topListings = filteredListings.filter(locationMatch);
+    const otherListings = filteredListings.filter(
+      (listing) => !locationMatch(listing)
+    );
     if (!currentLocation || !district) {
       return (
         <div className="flex flex-col items-center justify-center h-[50vh]">
@@ -551,23 +574,6 @@ function ProvidersContent() {
       );
     }
 
-    if (
-      !serveIn.includes(toTitleCase(district) + " Delhi") &&
-      !serveIn.includes(toTitleCase(district))
-    ) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[50vh] text-center px-4">
-          <h2 className="text-2xl font-semibold text-gray-600 mb-2">
-            For now, our services are available in
-            <span className="text-teal-600 font-bold"> Delhi NCR</span>.
-          </h2>
-          <p className="text-gray-500 text-base">
-            We’re expanding soon —{" "}
-            <span className="font-medium text-teal-500">stay connected!</span>
-          </p>
-        </div>
-      );
-    }
 
     if (filteredListings.length === 0) {
       return (
@@ -589,30 +595,63 @@ function ProvidersContent() {
     // console.log( toTitleCase(district) in serveIn )
 
     return (
-      <div className="flex flex-wrap justify-center gap-5 p-5">
-        {isLoadingListings ? (
-          <div>Loading attendants...</div>
-        ) : filteredListings.length > 0 ? (
-          filteredListings.map((attendant) => (
-            <AttendantCard
-              key={attendant.id}
-              attendant={{
-                fullName: attendant.fullName,
-                jobRole: attendant.jobRole,
-                experienceYears: attendant.experienceYears,
-                languagesKnown: attendant.languagesKnown,
-                location: `${attendant.district}`,
-                preferredShifts: attendant.preferredShifts,
-                extraServicesOffered: attendant.extraServicesOffered,
-                gender: attendant.gender,
-                expectedWages: attendant.expectedWages,
-                onViewProfile: () =>
-                  router.push("/attendant/" + encodeURIComponent(attendant.id)),
-              }}
-            />
-          ))
-        ) : (
-          <div>No attendants found</div>
+      <div>
+        {topListings.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-center">Best Finds</h2>
+            <div className="flex flex-wrap justify-center gap-5 p-5">
+              {topListings.map((attendant) => (
+                <AttendantCard
+                  key={attendant.id}
+                  attendant={{
+                    fullName: attendant.fullName,
+                    jobRole: attendant.jobRole,
+                    experienceYears: attendant.experienceYears,
+                    languagesKnown: attendant.languagesKnown,
+                    location: `${attendant.district}`,
+                    preferredShifts: attendant.preferredShifts,
+                    extraServicesOffered: attendant.extraServicesOffered,
+                    gender: attendant.gender,
+                    expectedWages: attendant.expectedWages,
+                    onViewProfile: () =>
+                      router.push(
+                        "/attendant/" + encodeURIComponent(attendant.id)
+                      ),
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {otherListings.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              Other Providers in Delhi NCR
+            </h2>
+            <div className="flex flex-wrap justify-center gap-5 p-5">
+              {otherListings.map((attendant) => (
+                <AttendantCard
+                  key={attendant.id}
+                  attendant={{
+                    fullName: attendant.fullName,
+                    jobRole: attendant.jobRole,
+                    experienceYears: attendant.experienceYears,
+                    languagesKnown: attendant.languagesKnown,
+                    location: `${attendant.district}`,
+                    preferredShifts: attendant.preferredShifts,
+                    extraServicesOffered: attendant.extraServicesOffered,
+                    gender: attendant.gender,
+                    expectedWages: attendant.expectedWages,
+                    onViewProfile: () =>
+                      router.push(
+                        "/attendant/" + encodeURIComponent(attendant.id)
+                      ),
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         )}
       </div>
     );
@@ -893,9 +932,9 @@ function ProvidersContent() {
                 query !== currentLocation && (
                   <div className="absolute w-full mt-1 bg-white rounded-md shadow-lg border z-50">
                     <ScrollArea className="max-h-64 overflow-y-scroll">
-                      {results.map((result) => (
+                      {results.map((result, index) => (
                         <button
-                          key={`${result.pincode}-${result.officeName}`}
+                          key={`${result.pincode}-${result.officeName}-${index}`}
                           onClick={() => handleSelect(result)}
                           className="w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b last:border-0"
                         >

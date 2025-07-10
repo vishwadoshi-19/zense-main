@@ -29,7 +29,7 @@ const getAttendantIcon = (jobRole: string, gender?: string): string => {
 interface Attendant {
   fullName: string;
   jobRole: string;
-  experienceYears: number;
+  experienceYears: string;
   languagesKnown: string[];
   location: string;
   preferredShifts: string[];
